@@ -1,46 +1,89 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Game } from "../services/gameService";
+import { FV_TEAMS, Game } from "../data";
+import { colors, radius, shadow } from "../theme";
+import StatusChip from "./StatusChip";
+import TeamRow from "./TeamRow";
 
-type GameCardProps = {
+type Props = {
   game: Game;
+  onPress?: () => void;
 };
 
-export default function GameCard({ game }: GameCardProps) {
+export default function GameCard({ game, onPress }: Props) {
+  const home = FV_TEAMS[game.home];
+  const away = FV_TEAMS[game.away];
+  const winner =
+    game.status === "final"
+      ? (game.hScore ?? 0) > (game.aScore ?? 0)
+        ? game.home
+        : game.away
+      : null;
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.matchup}>
-        {game.home_team} vs {game.away_team}
-      </Text>
-      <Text style={styles.meta}>Time: {game.time}</Text>
-      <Text style={styles.meta}>Location: {game.location}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        shadow.s1,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={styles.head}>
+        <StatusChip status={game.status} period={game.period} />
+        <Text style={styles.meta}>
+          {game.court} · {game.round}
+        </Text>
+      </View>
+      <TeamRow team={home} score={game.hScore} dim={!!winner && winner !== game.home} />
+      <View style={styles.divider} />
+      <TeamRow team={away} score={game.aScore} dim={!!winner && winner !== game.away} />
+      {game.status === "upcoming" && (
+        <View style={styles.foot}>
+          <Feather name="clock" size={14} color={colors.fg3} />
+          <Text style={styles.footText}>
+            {game.time} · {game.when}
+          </Text>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.bgSurface,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: colors.border1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
-  matchup: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#111827",
+  pressed: { opacity: 0.96, transform: [{ scale: 0.99 }] },
+  head: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
   },
-  meta: {
-    fontSize: 14,
-    color: "#4b5563",
-    marginBottom: 2,
+  meta: { fontSize: 11.5, fontWeight: "500", color: colors.fg3 },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border1,
+    marginVertical: 4,
+    opacity: 0.7,
   },
+  foot: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border1,
+    borderStyle: "dashed",
+  },
+  footText: { fontSize: 12, fontWeight: "500", color: colors.fg3 },
 });
