@@ -1,9 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import GameCard from "../components/GameCard";
 import TeamLogo from "../components/TeamLogo";
-import { FV_GAMES, FV_TEAMS } from "../data";
+import { fetchGames, fetchTeams } from "../api";
+import { Game, Team } from "../data";
 import { colors } from "../theme";
 
 type Props = {
@@ -13,21 +15,75 @@ type Props = {
 };
 
 export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
-  const team = FV_TEAMS[teamAbbr];
-  if (!team) return null;
-  const games = FV_GAMES.filter((g) => g.home === teamAbbr || g.away === teamAbbr);
-  const wins = games.filter(
+  const [games, setGames] = useState<Game[]>([]);
+  const [teamsByAbbr, setTeamsByAbbr] = useState<Record<string, Team>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      setError(null);
+      try {
+        const [nextTeams, nextGames] = await Promise.all([fetchTeams(), fetchGames()]);
+        setTeamsByAbbr(Object.fromEntries(nextTeams.map((t) => [t.abbr, t])));
+        setGames(nextGames);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load team");
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [teamAbbr]);
+
+  const team = teamsByAbbr[teamAbbr];
+  const teamGames = useMemo(
+    () => games.filter((g) => g.home === teamAbbr || g.away === teamAbbr),
+    [games, teamAbbr],
+  );
+  const wins = teamGames.filter(
     (g) =>
       g.status === "final" &&
       ((g.home === teamAbbr && (g.hScore ?? 0) > (g.aScore ?? 0)) ||
         (g.away === teamAbbr && (g.aScore ?? 0) > (g.hScore ?? 0))),
   ).length;
-  const losses = games.filter(
+  const losses = teamGames.filter(
     (g) =>
       g.status === "final" &&
       ((g.home === teamAbbr && (g.hScore ?? 0) < (g.aScore ?? 0)) ||
         (g.away === teamAbbr && (g.aScore ?? 0) < (g.hScore ?? 0))),
   ).length;
+
+  if (loading) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.state}>
+          <ActivityIndicator />
+          <Text style={styles.stateText}>Loading team…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.state}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!team) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.state}>
+          <Text style={styles.errorText}>Team not found.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -69,8 +125,13 @@ export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.dateHeader}>This week</Text>
         <View style={styles.cardStack}>
-          {games.map((g) => (
-            <GameCard key={g.id} game={g} onPress={() => onOpenGame(g.id)} />
+          {teamGames.map((g) => (
+            <GameCard
+              key={g.id}
+              game={g}
+              teamsByAbbr={teamsByAbbr}
+              onPress={() => onOpenGame(g.id)}
+            />
           ))}
         </View>
       </ScrollView>
@@ -80,6 +141,24 @@ export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bgApp },
+  state: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  stateText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.fg3,
+  },
+  errorText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.red500,
+    textAlign: "center",
+  },
   hero: {
     paddingHorizontal: 12,
     paddingTop: 12,

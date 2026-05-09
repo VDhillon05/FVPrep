@@ -1,10 +1,20 @@
 import { Feather } from "@expo/vector-icons";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import SettingsPopover from "../components/SettingsPopover";
 import TeamLogo from "../components/TeamLogo";
 import TopNav from "../components/TopNav";
-import { FV_STANDINGS } from "../data";
+import { fetchStandings } from "../api";
+import { StandingsRow } from "../data";
 import { colors, radius, shadow } from "../theme";
 
 type Props = {
@@ -22,6 +32,41 @@ export default function StandingsScreen({
   dark,
   onDarkChange,
 }: Props) {
+  const [standings, setStandings] = useState<StandingsRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setError(null);
+    const next = await fetchStandings();
+    setStandings(next);
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        await load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load standings");
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, []);
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <TopNav
@@ -35,7 +80,23 @@ export default function StandingsScreen({
           />
         }
       />
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {loading ? (
+          <View style={styles.state}>
+            <ActivityIndicator />
+            <Text style={styles.stateText}>Loading standings…</Text>
+          </View>
+        ) : null}
+        {!loading && error ? (
+          <View style={styles.state}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
         <View style={[styles.card, shadow.s1]}>
           <View style={[styles.row, styles.headRow]}>
             <Text style={[styles.headText, { width: 28 }]}> </Text>
@@ -44,7 +105,7 @@ export default function StandingsScreen({
             <Text style={[styles.headText, styles.numCol]}>PF</Text>
             <Text style={[styles.headText, styles.numCol]}>L5</Text>
           </View>
-          {FV_STANDINGS.map((t, i) => (
+          {standings.map((t, i) => (
             <Pressable
               key={t.abbr}
               onPress={() => onOpenTeam(t.abbr)}
@@ -103,6 +164,23 @@ export default function StandingsScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bgApp },
   body: { padding: 16, paddingBottom: 28 },
+  state: {
+    paddingTop: 18,
+    paddingBottom: 12,
+    alignItems: "center",
+    gap: 10,
+  },
+  stateText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.fg3,
+  },
+  errorText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.red500,
+    textAlign: "center",
+  },
   card: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
