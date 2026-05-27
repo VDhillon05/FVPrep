@@ -24,12 +24,14 @@ type Props = {
   onOpenGame: (id: number) => void;
   notifications: boolean;
   onNotificationsChange: (next: boolean) => void;
+  onAdmin: () => void;
 };
 
 export default function ScheduleScreen({
   onOpenGame,
   notifications,
   onNotificationsChange,
+  onAdmin,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -100,6 +102,7 @@ export default function ScheduleScreen({
           <SettingsPopover
             notifications={notifications}
             onNotificationsChange={onNotificationsChange}
+            onAdmin={onAdmin}
           />
         }
       />
