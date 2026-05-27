@@ -1,4 +1,6 @@
 import { StatusBar } from "expo-status-bar";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 
@@ -6,6 +8,7 @@ import { fetchGames, fetchStandings, fetchTeams } from "./api";
 import SplashScreen from "./components/SplashScreen";
 import TabBar, { TabId } from "./components/TabBar";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { requestNotificationPermissionIfNeeded } from "./notifications";
 import AdminDashboardScreen from "./screens/AdminDashboardScreen";
 import AdminLoginScreen from "./screens/AdminLoginScreen";
 import GameScreen from "./screens/GameScreen";
@@ -18,6 +21,18 @@ type DetailFrame =
   | { kind: "team"; id: string }
   | { kind: "admin-login" }
   | { kind: "admin-dashboard"; pin: string };
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+const NOTIFICATIONS_KEY = "fvprep:notifications-enabled";
 
 export default function App() {
   return (
@@ -35,9 +50,26 @@ function AppContent() {
   const [tab, setTab] = useState<TabId>("schedule");
   const [stack, setStack] = useState<DetailFrame[]>([]);
 
-  const [notifications, setNotifications] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
+  const notifications = !!notificationsEnabled;
 
   useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
+        if (stored === "true") {
+          setNotificationsEnabled(true);
+        } else if (stored === "false") {
+          setNotificationsEnabled(false);
+        } else {
+          setNotificationsEnabled(false);
+        }
+      } catch {
+        setNotificationsEnabled(false);
+      }
+    };
+    loadNotifications();
+
     Promise.all([fetchTeams(), fetchGames(), fetchStandings()])
       .catch(() => {
         /* Schedule / Standings show their own errors */
@@ -59,15 +91,35 @@ function AppContent() {
   const openTeam = (abbr: string) => setStack((s) => [...s, { kind: "team", id: abbr }]);
   const openAdmin = () => setStack((s) => [...s, { kind: "admin-login" }]);
 
+  const onNotificationsChange = useCallback(
+    async (next: boolean) => {
+      if (!next) {
+        setNotificationsEnabled(false);
+        await AsyncStorage.setItem(NOTIFICATIONS_KEY, "false");
+        return;
+      }
+
+      const granted = await requestNotificationPermissionIfNeeded();
+      if (granted) {
+        setNotificationsEnabled(true);
+        await AsyncStorage.setItem(NOTIFICATIONS_KEY, "true");
+      } else {
+        setNotificationsEnabled(false);
+        await AsyncStorage.setItem(NOTIFICATIONS_KEY, "false");
+      }
+    },
+    [],
+  );
+
   const settingsProps = {
     notifications,
-    onNotificationsChange: setNotifications,
+    onNotificationsChange,
     onAdmin: openAdmin,
   };
 
   let screen;
   if (top?.kind === "game") {
-    screen = <GameScreen gameId={top.id} onBack={back} />;
+    screen = <GameScreen gameId={top.id} onBack={back} notificationsEnabled={notifications} />;
   } else if (top?.kind === "team") {
     screen = <TeamScreen teamAbbr={top.id} onBack={back} onOpenGame={openGame} />;
   } else if (top?.kind === "admin-login") {
