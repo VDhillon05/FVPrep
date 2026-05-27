@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,25 +13,25 @@ import {
 import SettingsPopover from "../components/SettingsPopover";
 import TeamLogo from "../components/TeamLogo";
 import TopNav from "../components/TopNav";
+import { useTheme } from "../context/ThemeContext";
 import { fetchStandings } from "../api";
 import { StandingsRow } from "../data";
-import { colors, radius, shadow } from "../theme";
+import { radius, type ThemePalette } from "../theme";
 
 type Props = {
   onOpenTeam: (abbr: string) => void;
   notifications: boolean;
   onNotificationsChange: (next: boolean) => void;
-  dark: boolean;
-  onDarkChange: (next: boolean) => void;
 };
 
 export default function StandingsScreen({
   onOpenTeam,
   notifications,
   onNotificationsChange,
-  dark,
-  onDarkChange,
 }: Props) {
+  const { colors, shadow } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [standings, setStandings] = useState<StandingsRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,19 +75,23 @@ export default function StandingsScreen({
           <SettingsPopover
             notifications={notifications}
             onNotificationsChange={onNotificationsChange}
-            dark={dark}
-            onDarkChange={onDarkChange}
           />
         }
       />
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.fg3}
+          />
+        }
       >
         {loading ? (
           <View style={styles.state}>
-            <ActivityIndicator />
+            <ActivityIndicator color={colors.fg2} />
             <Text style={styles.stateText}>Loading standings…</Text>
           </View>
         ) : null}
@@ -116,8 +120,12 @@ export default function StandingsScreen({
                 pressed && styles.pressed,
               ]}
             >
-              <View style={[styles.seed, i < 2 && styles.seedGold, i >= 2 && i < 4 && styles.seedWarm]}>
-                <Text style={[styles.seedText, i < 2 && styles.seedTextGold, i >= 2 && i < 4 && styles.seedTextWarm]}>
+              <View
+                style={[styles.seed, i < 2 && styles.seedStrong, i >= 2 && i < 4 && styles.seedMuted]}
+              >
+                <Text
+                  style={[styles.seedText, i < 2 && styles.seedTextStrong, i >= 2 && i < 4 && styles.seedTextMuted]}
+                >
                   {i + 1}
                 </Text>
               </View>
@@ -132,10 +140,10 @@ export default function StandingsScreen({
               <Text style={[styles.num, styles.numCol]}>{t.pf.toLocaleString()}</Text>
               <View style={[styles.numCol, styles.last5]}>
                 {t.trend === "up" && (
-                  <Feather name="arrow-up" size={12} color={colors.green500} />
+                  <Feather name="arrow-up" size={12} color={colors.trendStrong} />
                 )}
                 {t.trend === "down" && (
-                  <Feather name="arrow-down" size={12} color={colors.red500} />
+                  <Feather name="arrow-down" size={12} color={colors.trendSoft} />
                 )}
                 <Text style={styles.num}>{t.last5}</Text>
               </View>
@@ -144,14 +152,14 @@ export default function StandingsScreen({
         </View>
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.seed, styles.seedGold]}>
-              <Text style={[styles.seedText, styles.seedTextGold]}>1</Text>
+            <View style={[styles.seed, styles.seedStrong]}>
+              <Text style={[styles.seedText, styles.seedTextStrong]}>1</Text>
             </View>
             <Text style={styles.legendText}>Top seed · auto bracket</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.seed, styles.seedWarm]}>
-              <Text style={[styles.seedText, styles.seedTextWarm]}>3</Text>
+            <View style={[styles.seed, styles.seedMuted]}>
+              <Text style={[styles.seedText, styles.seedTextMuted]}>3</Text>
             </View>
             <Text style={styles.legendText}>Wild-card eligible</Text>
           </View>
@@ -161,108 +169,110 @@ export default function StandingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bgApp },
-  body: { padding: 16, paddingBottom: 28 },
-  state: {
-    paddingTop: 18,
-    paddingBottom: 12,
-    alignItems: "center",
-    gap: 10,
-  },
-  stateText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.fg3,
-  },
-  errorText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.red500,
-    textAlign: "center",
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: colors.border1,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  headRow: {
-    backgroundColor: colors.cream50,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border1,
-  },
-  headText: {
-    fontSize: 10.5,
-    fontWeight: "700",
-    letterSpacing: 0.9,
-    textTransform: "uppercase",
-    color: colors.fg3,
-  },
-  dataRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border1,
-  },
-  firstDataRow: { borderTopWidth: 0 },
-  pressed: { backgroundColor: colors.cream50 },
-  teamCol: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  numCol: {
-    width: 56,
-    textAlign: "right",
-  },
-  seed: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: colors.navy100,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  seedGold: { backgroundColor: colors.orange100 },
-  seedWarm: { backgroundColor: colors.cream200 },
-  seedText: { fontSize: 11, fontWeight: "700", color: colors.navy700 },
-  seedTextGold: { color: colors.orange700 },
-  seedTextWarm: { color: colors.navy700 },
-  teamName: { fontSize: 14, fontWeight: "600", color: colors.fg1 },
-  teamCity: { fontSize: 11, fontWeight: "500", color: colors.fg3, marginTop: 2 },
-  num: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.fg2,
-    textAlign: "right",
-    fontVariant: ["tabular-nums"],
-  },
-  numBold: { color: colors.fg1, fontWeight: "700" },
-  last5: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-  },
-  legend: {
-    marginTop: 14,
-    gap: 6,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  legendText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.fg3,
-  },
-});
+function createStyles(c: ThemePalette) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.bgApp },
+    body: { padding: 16, paddingBottom: 28 },
+    state: {
+      paddingTop: 18,
+      paddingBottom: 12,
+      alignItems: "center",
+      gap: 10,
+    },
+    stateText: {
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: c.fg3,
+    },
+    errorText: {
+      fontSize: 12.5,
+      fontWeight: "700",
+      color: c.fg1,
+      textAlign: "center",
+    },
+    card: {
+      backgroundColor: c.bgSurface,
+      borderWidth: 1,
+      borderColor: c.border1,
+      borderRadius: radius.lg,
+      overflow: "hidden",
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 10,
+    },
+    headRow: {
+      backgroundColor: c.bgMuted,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border1,
+    },
+    headText: {
+      fontSize: 10.5,
+      fontWeight: "700",
+      letterSpacing: 0.9,
+      textTransform: "uppercase",
+      color: c.fg3,
+    },
+    dataRow: {
+      borderTopWidth: 1,
+      borderTopColor: c.border1,
+    },
+    firstDataRow: { borderTopWidth: 0 },
+    pressed: { backgroundColor: c.bgSubtle },
+    teamCol: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    numCol: {
+      width: 56,
+      textAlign: "right",
+    },
+    seed: {
+      width: 24,
+      height: 24,
+      borderRadius: 6,
+      backgroundColor: c.bgMuted,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    seedStrong: { backgroundColor: c.fg1 },
+    seedMuted: { backgroundColor: c.border1 },
+    seedText: { fontSize: 11, fontWeight: "700", color: c.fg1 },
+    seedTextStrong: { color: c.bgSurface },
+    seedTextMuted: { color: c.fg1 },
+    teamName: { fontSize: 14, fontWeight: "600", color: c.fg1 },
+    teamCity: { fontSize: 11, fontWeight: "500", color: c.fg3, marginTop: 2 },
+    num: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: c.fg2,
+      textAlign: "right",
+      fontVariant: ["tabular-nums"],
+    },
+    numBold: { color: c.fg1, fontWeight: "700" },
+    last5: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 4,
+    },
+    legend: {
+      marginTop: 14,
+      gap: 6,
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    legendText: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.fg3,
+    },
+  });
+}

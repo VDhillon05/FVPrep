@@ -2,3 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Backend runtime artifacts
+backend/fvprep.db
+backend/__pycache__/

@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Team } from "../data";
-import { colors } from "../theme";
+import type { ThemePalette } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 import TeamLogo from "./TeamLogo";
 
 type Props = {
@@ -11,6 +13,9 @@ type Props = {
 };
 
 export default function TeamRow({ team, score, dim }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.row}>
       <TeamLogo team={team} size={32} />
@@ -25,36 +30,38 @@ export default function TeamRow({ team, score, dim }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 4,
-  },
-  meta: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.fg1,
-  },
-  record: {
-    fontSize: 11.5,
-    fontWeight: "500",
-    color: colors.fg3,
-  },
-  score: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.fg1,
-    fontVariant: ["tabular-nums"],
-    lineHeight: 26,
-  },
-  scoreDim: {
-    color: colors.fg3,
-  },
-});
+function createStyles(c: ThemePalette) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingVertical: 4,
+    },
+    meta: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    name: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: c.fg1,
+    },
+    record: {
+      fontSize: 11.5,
+      fontWeight: "500",
+      color: c.fg3,
+    },
+    score: {
+      fontSize: 26,
+      fontWeight: "700",
+      color: c.fg1,
+      fontVariant: ["tabular-nums"],
+      lineHeight: 26,
+    },
+    scoreDim: {
+      color: c.fg3,
+    },
+  });
+}

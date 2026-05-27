@@ -1,24 +1,55 @@
 # FVPrep
 
-Basketball tournament scheduling app foundation with:
-- `backend`: FastAPI API
-- `frontend`: Expo React Native (TypeScript)
+Basketball tournament scheduling app: **Expo React Native (TypeScript)** frontend and **FastAPI + SQLite (SQLModel)** backend.
 
-## Backend (FastAPI)
+## Repository layout
+
+- [`backend/`](backend/) — API, models, seed, SQLite file `fvprep.db` (created when you run uvicorn from this directory).
+- [`frontend/`](frontend/) — Expo app: screens, shared types, API client, theme.
+
+**Physical devices:** set `EXPO_PUBLIC_API_URL` to your machine’s LAN IP so the app can reach the backend (see [Run Frontend](#run-frontend)).
+
+---
+
+## Current status
+
+### Done
+
+**Backend**
+
+- SQLite persistence (`fvprep.db`) via SQLModel; tables and one-time seed if the DB is empty.
+- Models in [`backend/main.py`](backend/main.py): `Team` (`abbr`, `name`, `city`, `seed`, `color`, `textColor`), `Game` (`id`, `status`, `home`, `away`, scores, `period`, `time`, `when`, `court`, `round`).
+- Endpoints: `GET /teams`, `GET /games`, `GET /standings` (standings computed from final games: W/L, PF/PA, `last5`, `trend`).
+- Root [`.gitignore`](.gitignore) ignores `backend/fvprep.db` and `backend/__pycache__/`.
+
+**Frontend**
+
+- [`frontend/api.ts`](frontend/api.ts) — `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`), typed fetch helpers for teams, games, and standings.
+- Schedule, standings, team detail, and game detail screens load from the API (no mock `FV_TEAMS` / `FV_GAMES`); shared types live in [`frontend/data.ts`](frontend/data.ts).
+- Loading and error states on schedule, standings, team, and game screens; pull-to-refresh on schedule and standings.
+- Custom monochrome splash: centered **FV** on black, fade + scale over 1.5s via React Native `Animated`; [`frontend/App.tsx`](frontend/App.tsx) waits for both that animation and an initial prefetch (`teams`, `games`, `standings`) before showing the tab UI (prefetch failures do not block the transition—screens still show errors).
+- Strict black-and-white theming is fully wired: [`frontend/theme.ts`](frontend/theme.ts) defines grayscale light/dark palettes, [`frontend/context/ThemeContext.tsx`](frontend/context/ThemeContext.tsx) provides global theme state, and the existing settings toggle now switches the entire app between modes.
+
+### To-do (next steps)
+
+1. **Admin screen + auth** — settings popover exposes optional admin wiring that is not connected end-to-end yet.
+2. **Notifications** — settings toggle is UI-only (no OS permissions, local schedule, or push).
+3. **Calendar actions** — e.g. add-to-calendar or deep links from game rows (product-dependent).
+4. **Polish / QA** — device testing with `EXPO_PUBLIC_API_URL`, reduce duplicate fetches after splash if desired (context or cache).
+
+---
+
+## Run backend
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-API endpoints:
-- `GET /games` - returns the in-memory games list
-- `POST /games` - dummy admin add-game route (in-memory only)
-
-## Frontend (Expo)
+## Run frontend
 
 ```bash
 cd frontend
@@ -26,62 +57,14 @@ npm install
 npx expo start
 ```
 
-Optional API override (recommended on physical devices):
+On a **physical device**, point the app at your computer’s API (same Wi‑Fi):
 
 ```bash
-EXPO_PUBLIC_API_URL=http://<your-local-ip>:8000 npx expo start
+EXPO_PUBLIC_API_URL=http://<your-LAN-ip>:8000 npx expo start
 ```
 
-## UI overview
+## API quick check
 
-App is a **schedule + standings shell** with **sample data** (`frontend/data.ts`), not wired to the backend yet.
-
-- **Tabs (bottom):** **Schedule** (calendar) and **Standings** (trophy). Tabs hide when you open a **game** or **team** detail; use **back** to return.
-- **Schedule:** **Top bar** title + **settings** (gear). **Segmented filters:** All, Live, Upcoming, Final. **Games** grouped by **date/time**; each row is a **card** with status, court, round, teams/scores (or time for upcoming); **tap** opens **game detail**.
-- **Standings:** **Table** with **seed** badges, **logos**, team name/city, record, points for, and **last five** with **up/down** arrows. **Tap a team** for **team detail**.
-- **Settings (modal):** **Notifications** toggle, **Dark / light** toggle, and an **Admin** button (placeholder hook).
-- **Game detail:** Gradient-style **hero** with **back**, round title, **status chip**, court, both teams and **score**, quarter **box score**, and **Notify me** / **Add to calendar** buttons (UI only).
-- **Team detail:** **Colored hero** with logo, name, city/seed, mini **record/W–L** stats, then a **list of that team’s games** (same cards as schedule); **tap** goes to game detail.
-
-## To-do list
-
-### Backend (`backend/`)
-
-- Add `sqlmodel` to `requirements.txt` and pip install it inside the venv
-- Add `backend/fvprep.db` and `backend/__pycache__/` to `.gitignore`
-- In `main.py`, define two SQLModel tables:
-  - `Team` (abbr PK, name, city, seed, color, text_color)
-  - `Game` (id PK, status, home, away, h_score, a_score, period, time, when, court, round)
-- Create the SQLite engine (`sqlite:///fvprep.db`) and call `SQLModel.metadata.create_all(engine)` in a FastAPI lifespan
-- Write a one-time `seed()` that inserts the same teams/games currently hardcoded in `frontend/data.ts` — only seed if the DB is empty
-- Implement three GET routes:
-  - `GET /teams` — return all teams
-  - `GET /games` — return all games
-  - `GET /standings` — compute W–L, PF, PA, last5, trend from final games and join onto teams
-- Decide: rename `text_color` → `textColor` on the response (or map it on the frontend) — pick one, document it
-- Sanity-check each endpoint in a browser at `localhost:8000/...` before touching the frontend
-- Remove the in-memory games list and the old Game Pydantic model
-
-### Frontend (`frontend/`)
-
-- Create `frontend/api.ts` with `fetchTeams`, `fetchGames`, `fetchStandings` — read base URL from `process.env.EXPO_PUBLIC_API_URL`, default to `http://localhost:8000`
-- Keep `data.ts` for type exports only; delete `FV_TEAMS` / `FV_GAMES` / `FV_STANDINGS` constants once nothing imports them
-- Convert `ScheduleScreen.tsx` from `FV_GAMES` to `useEffect` + `fetchGames`
-- Convert `StandingsScreen.tsx` from `FV_STANDINGS` to `fetchStandings`
-- Convert `TeamScreen.tsx` to fetch both teams and games (needs a `teamsByAbbr` map for lookups)
-- Convert `GameScreen.tsx` to fetch teams + the single game (or pass the game object down)
-- Add loading spinner + simple error text to each screen (no fancy lib needed)
-- Add pull-to-refresh on Schedule and Standings (`RefreshControl`)
-- Test on a physical device — set `EXPO_PUBLIC_API_URL=http://<your-LAN-ip>:8000`
-
-### Smoke test before calling it done
-
-- Delete `fvprep.db`, restart backend, confirm seed runs
-- App loads with backend running → schedule, standings, team detail, game detail all populated
-- App with backend off → screens show error state, not a white screen
-- Pull-to-refresh on Schedule actually re-fetches
-
-### do later
-
-- Admin screen + auth
-- Dark mode wiring, notifications, calendar buttons
+- `http://localhost:8000/teams`
+- `http://localhost:8000/games`
+- `http://localhost:8000/standings`
