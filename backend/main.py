@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -29,6 +30,19 @@ class Game(SQLModel, table=True):
     when: str
     court: str
     round: str
+
+
+class GameCreate(SQLModel):
+    home: str
+    away: str
+    time: str
+    court: str
+    round: str
+    when: str | None = None
+    status: str = "upcoming"
+    h_score: int | None = None
+    a_score: int | None = None
+    period: str | None = None
 
 
 engine = create_engine(
@@ -228,6 +242,14 @@ app.add_middleware(
 )
 
 
+ADMIN_PIN = os.getenv("FVPREP_ADMIN_PIN", "1234")
+
+
+def _require_admin_pin(pin: str | None) -> None:
+    if pin != ADMIN_PIN:
+        raise HTTPException(status_code=401, detail="Invalid admin PIN")
+
+
 @app.get("/teams", response_model=list[Team])
 def list_teams() -> list[Team]:
     with Session(engine) as session:
@@ -238,6 +260,47 @@ def list_teams() -> list[Team]:
 def list_games() -> list[Game]:
     with Session(engine) as session:
         return list(session.exec(select(Game)).all())
+
+
+@app.post("/admin/auth")
+def admin_auth(x_admin_pin: str | None = Header(default=None)) -> dict[str, bool]:
+    _require_admin_pin(x_admin_pin)
+    return {"ok": True}
+
+
+@app.post("/games", response_model=Game, status_code=201)
+def create_game(payload: GameCreate, x_admin_pin: str | None = Header(default=None)) -> Game:
+    _require_admin_pin(x_admin_pin)
+
+    if payload.home == payload.away:
+        raise HTTPException(status_code=400, detail="Home and away teams must be different")
+
+    with Session(engine) as session:
+        home_team = session.get(Team, payload.home)
+        away_team = session.get(Team, payload.away)
+        if home_team is None or away_team is None:
+            raise HTTPException(status_code=400, detail="Invalid team code")
+
+        max_id = session.exec(select(Game.id).order_by(Game.id.desc())).first()
+        next_id = (max_id or 0) + 1
+
+        game = Game(
+            id=next_id,
+            status=payload.status,
+            home=payload.home,
+            away=payload.away,
+            h_score=payload.h_score,
+            a_score=payload.a_score,
+            period=payload.period,
+            time=payload.time,
+            when=payload.when or payload.time,
+            court=payload.court,
+            round=payload.round,
+        )
+        session.add(game)
+        session.commit()
+        session.refresh(game)
+        return game
 
 
 @app.get("/standings")

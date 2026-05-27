@@ -6,12 +6,18 @@ import { fetchGames, fetchStandings, fetchTeams } from "./api";
 import SplashScreen from "./components/SplashScreen";
 import TabBar, { TabId } from "./components/TabBar";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import AdminDashboardScreen from "./screens/AdminDashboardScreen";
+import AdminLoginScreen from "./screens/AdminLoginScreen";
 import GameScreen from "./screens/GameScreen";
 import ScheduleScreen from "./screens/ScheduleScreen";
 import StandingsScreen from "./screens/StandingsScreen";
 import TeamScreen from "./screens/TeamScreen";
 
-type DetailFrame = { kind: "game"; id: number } | { kind: "team"; id: string };
+type DetailFrame =
+  | { kind: "game"; id: number }
+  | { kind: "team"; id: string }
+  | { kind: "admin-login" }
+  | { kind: "admin-dashboard"; pin: string };
 
 export default function App() {
   return (
@@ -51,10 +57,12 @@ function AppContent() {
   const back = () => setStack((s) => s.slice(0, -1));
   const openGame = (id: number) => setStack((s) => [...s, { kind: "game", id }]);
   const openTeam = (abbr: string) => setStack((s) => [...s, { kind: "team", id: abbr }]);
+  const openAdmin = () => setStack((s) => [...s, { kind: "admin-login" }]);
 
   const settingsProps = {
     notifications,
     onNotificationsChange: setNotifications,
+    onAdmin: openAdmin,
   };
 
   let screen;
@@ -62,6 +70,15 @@ function AppContent() {
     screen = <GameScreen gameId={top.id} onBack={back} />;
   } else if (top?.kind === "team") {
     screen = <TeamScreen teamAbbr={top.id} onBack={back} onOpenGame={openGame} />;
+  } else if (top?.kind === "admin-login") {
+    screen = (
+      <AdminLoginScreen
+        onBack={back}
+        onSuccess={(pin) => setStack((s) => [...s.slice(0, -1), { kind: "admin-dashboard", pin }])}
+      />
+    );
+  } else if (top?.kind === "admin-dashboard") {
+    screen = <AdminDashboardScreen pin={top.pin} onBack={back} />;
   } else if (tab === "schedule") {
     screen = <ScheduleScreen onOpenGame={openGame} {...settingsProps} />;
   } else {

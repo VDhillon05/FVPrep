@@ -34,6 +34,14 @@ type ApiStandingsRow = ApiTeam & {
   trend: "up" | "down" | "same";
 };
 
+export type CreateGameInput = {
+  home: string;
+  away: string;
+  time: string;
+  court: string;
+  round: string;
+};
+
 async function fetchJson<T>(path: string): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   try {
@@ -109,5 +117,50 @@ export async function fetchGames(): Promise<Game[]> {
     court: g.court,
     round: g.round,
   }));
+}
+
+function normalizeGame(g: ApiGame): Game {
+  return {
+    id: g.id,
+    status: g.status,
+    home: g.home,
+    away: g.away,
+    hScore: g.h_score,
+    aScore: g.a_score,
+    period: g.period,
+    time: g.time,
+    when: g.when,
+    court: g.court,
+    round: g.round,
+  };
+}
+
+export async function verifyAdminPin(pin: string): Promise<void> {
+  const url = `${API_BASE_URL}/admin/auth`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "X-Admin-PIN": pin },
+  });
+  if (!res.ok) {
+    throw new Error("Invalid admin PIN");
+  }
+}
+
+export async function createGame(gameData: CreateGameInput, pin: string): Promise<Game> {
+  const url = `${API_BASE_URL}/games`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-PIN": pin,
+    },
+    body: JSON.stringify(gameData),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Invalid admin PIN");
+    const text = await res.text();
+    throw new Error(text || `Failed to create game (${res.status})`);
+  }
+  return normalizeGame((await res.json()) as ApiGame);
 }
 

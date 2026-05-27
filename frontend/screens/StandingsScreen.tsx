@@ -22,12 +22,14 @@ type Props = {
   onOpenTeam: (abbr: string) => void;
   notifications: boolean;
   onNotificationsChange: (next: boolean) => void;
+  onAdmin: () => void;
 };
 
 export default function StandingsScreen({
   onOpenTeam,
   notifications,
   onNotificationsChange,
+  onAdmin,
 }: Props) {
   const { colors, shadow } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -75,6 +77,7 @@ export default function StandingsScreen({
           <SettingsPopover
             notifications={notifications}
             onNotificationsChange={onNotificationsChange}
+            onAdmin={onAdmin}
           />
         }
       />
