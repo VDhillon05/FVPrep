@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import FilterSegment from "../components/FilterSegment";
 import GameCard from "../components/GameCard";
 import SettingsPopover from "../components/SettingsPopover";
 import TopNav from "../components/TopNav";
+import { useTheme } from "../context/ThemeContext";
 import { fetchGames, fetchTeams } from "../api";
 import { Game, Team } from "../data";
-import { colors } from "../theme";
+import type { ThemePalette } from "../theme";
 
 const FILTERS = ["All", "Live", "Upcoming", "Final"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -16,17 +24,16 @@ type Props = {
   onOpenGame: (id: number) => void;
   notifications: boolean;
   onNotificationsChange: (next: boolean) => void;
-  dark: boolean;
-  onDarkChange: (next: boolean) => void;
 };
 
 export default function ScheduleScreen({
   onOpenGame,
   notifications,
   onNotificationsChange,
-  dark,
-  onDarkChange,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [filter, setFilter] = useState<Filter>("All");
   const [games, setGames] = useState<Game[]>([]);
   const [teamsByAbbr, setTeamsByAbbr] = useState<Record<string, Team>>({});
@@ -65,17 +72,25 @@ export default function ScheduleScreen({
     }
   };
 
-  const filtered = useMemo(() => games.filter((g) => {
-    if (filter === "All") return true;
-    if (filter === "Live") return g.status === "live";
-    if (filter === "Upcoming") return g.status === "upcoming";
-    return g.status === "final";
-  }), [games, filter]);
+  const filtered = useMemo(
+    () =>
+      games.filter((g) => {
+        if (filter === "All") return true;
+        if (filter === "Live") return g.status === "live";
+        if (filter === "Upcoming") return g.status === "upcoming";
+        return g.status === "final";
+      }),
+    [games, filter],
+  );
 
-  const groups = useMemo(() => filtered.reduce<Record<string, Game[]>>((acc, g) => {
-    (acc[g.time] ||= []).push(g);
-    return acc;
-  }, {}), [filtered]);
+  const groups = useMemo(
+    () =>
+      filtered.reduce<Record<string, Game[]>>((acc, g) => {
+        (acc[g.time] ||= []).push(g);
+        return acc;
+      }, {}),
+    [filtered],
+  );
 
   return (
     <View style={styles.screen}>
@@ -85,8 +100,6 @@ export default function ScheduleScreen({
           <SettingsPopover
             notifications={notifications}
             onNotificationsChange={onNotificationsChange}
-            dark={dark}
-            onDarkChange={onDarkChange}
           />
         }
       />
@@ -96,11 +109,17 @@ export default function ScheduleScreen({
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.fg3}
+          />
+        }
       >
         {loading ? (
           <View style={styles.state}>
-            <ActivityIndicator />
+            <ActivityIndicator color={colors.fg2} />
             <Text style={styles.stateText}>Loading schedule…</Text>
           </View>
         ) : null}
@@ -129,47 +148,49 @@ export default function ScheduleScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.bgApp,
-  },
-  pad: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  list: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  state: {
-    paddingTop: 24,
-    paddingBottom: 8,
-    alignItems: "center",
-    gap: 10,
-  },
-  stateText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.fg3,
-  },
-  errorText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.red500,
-    textAlign: "center",
-  },
-  dateHeader: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.9,
-    textTransform: "uppercase",
-    color: colors.fg3,
-    marginTop: 18,
-    marginBottom: 10,
-    marginHorizontal: 4,
-  },
-  cardStack: {
-    gap: 10,
-  },
-});
+function createStyles(c: ThemePalette) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: c.bgApp,
+    },
+    pad: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    list: {
+      paddingHorizontal: 16,
+      paddingBottom: 24,
+    },
+    state: {
+      paddingTop: 24,
+      paddingBottom: 8,
+      alignItems: "center",
+      gap: 10,
+    },
+    stateText: {
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: c.fg3,
+    },
+    errorText: {
+      fontSize: 12.5,
+      fontWeight: "700",
+      color: c.fg1,
+      textAlign: "center",
+    },
+    dateHeader: {
+      fontSize: 11,
+      fontWeight: "700",
+      letterSpacing: 0.9,
+      textTransform: "uppercase",
+      color: c.fg3,
+      marginTop: 18,
+      marginBottom: 10,
+      marginHorizontal: 4,
+    },
+    cardStack: {
+      gap: 10,
+    },
+  });
+}

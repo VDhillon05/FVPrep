@@ -1,23 +1,51 @@
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 
+import { fetchGames, fetchStandings, fetchTeams } from "./api";
+import SplashScreen from "./components/SplashScreen";
 import TabBar, { TabId } from "./components/TabBar";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import GameScreen from "./screens/GameScreen";
 import ScheduleScreen from "./screens/ScheduleScreen";
 import StandingsScreen from "./screens/StandingsScreen";
 import TeamScreen from "./screens/TeamScreen";
-import { colors } from "./theme";
 
 type DetailFrame = { kind: "game"; id: number } | { kind: "team"; id: string };
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
+function AppContent() {
+  const { colors, isDark } = useTheme();
+  const [isAppReady, setIsAppReady] = useState(false);
+  const gates = useRef({ animation: false, prefetch: false });
+
   const [tab, setTab] = useState<TabId>("schedule");
   const [stack, setStack] = useState<DetailFrame[]>([]);
 
-  // Settings popover state lifted to App so it persists across screens.
   const [notifications, setNotifications] = useState(true);
-  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    Promise.all([fetchTeams(), fetchGames(), fetchStandings()])
+      .catch(() => {
+        /* Schedule / Standings show their own errors */
+      })
+      .finally(() => {
+        gates.current.prefetch = true;
+        if (gates.current.animation) setIsAppReady(true);
+      });
+  }, []);
+
+  const onSplashAnimationEnd = useCallback(() => {
+    gates.current.animation = true;
+    if (gates.current.prefetch) setIsAppReady(true);
+  }, []);
 
   const top = stack[stack.length - 1];
   const back = () => setStack((s) => s.slice(0, -1));
@@ -27,8 +55,6 @@ export default function App() {
   const settingsProps = {
     notifications,
     onNotificationsChange: setNotifications,
-    dark,
-    onDarkChange: setDark,
   };
 
   let screen;
@@ -44,9 +70,18 @@ export default function App() {
 
   const showTabBar = !top;
 
+  if (!isAppReady) {
+    return (
+      <View style={styles.bootRoot}>
+        <StatusBar style="light" />
+        <SplashScreen onAnimationEnd={onSplashAnimationEnd} />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgApp }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       <View style={styles.body}>{screen}</View>
       {showTabBar && (
         <TabBar
@@ -62,9 +97,12 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  bootRoot: {
+    flex: 1,
+    backgroundColor: "#000000",
+  },
   safe: {
     flex: 1,
-    backgroundColor: colors.bgApp,
   },
   body: { flex: 1 },
 });

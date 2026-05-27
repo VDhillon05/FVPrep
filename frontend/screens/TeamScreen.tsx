@@ -4,9 +4,10 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import GameCard from "../components/GameCard";
 import TeamLogo from "../components/TeamLogo";
+import { useTheme } from "../context/ThemeContext";
 import { fetchGames, fetchTeams } from "../api";
 import { Game, Team } from "../data";
-import { colors } from "../theme";
+import type { ThemePalette } from "../theme";
 
 type Props = {
   teamAbbr: string;
@@ -15,6 +16,9 @@ type Props = {
 };
 
 export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [games, setGames] = useState<Game[]>([]);
   const [teamsByAbbr, setTeamsByAbbr] = useState<Record<string, Team>>({});
   const [loading, setLoading] = useState(true);
@@ -58,7 +62,7 @@ export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
     return (
       <View style={styles.screen}>
         <View style={styles.state}>
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.fg2} />
           <Text style={styles.stateText}>Loading team…</Text>
         </View>
       </View>
@@ -87,13 +91,13 @@ export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.hero, { backgroundColor: team.color }]}>
+      <View style={styles.hero}>
         <View style={styles.heroBar}>
           <Pressable onPress={onBack} style={styles.iconBtnLight} accessibilityLabel="Back">
-            <Feather name="chevron-left" size={22} color="#ffffff" />
+            <Feather name="chevron-left" size={22} color={colors.fgOnInverse} />
           </Pressable>
           <Pressable style={styles.iconBtnLight} accessibilityLabel="Favorite">
-            <Feather name="star" size={20} color="#ffffff" />
+            <Feather name="star" size={20} color={colors.fgOnInverse} />
           </Pressable>
         </View>
         <View style={styles.heroBody}>
@@ -139,106 +143,109 @@ export default function TeamScreen({ teamAbbr, onBack, onOpenGame }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bgApp },
-  state: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  stateText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.fg3,
-  },
-  errorText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.red500,
-    textAlign: "center",
-  },
-  hero: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 22,
-  },
-  heroBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  iconBtnLight: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroBody: {
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 6,
-  },
-  logoFrame: {
-    padding: 4,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  name: {
-    color: "#ffffff",
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.6,
-    marginTop: 8,
-  },
-  city: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  stats: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    marginTop: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 14,
-  },
-  statCell: { alignItems: "center" },
-  statNum: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  statLbl: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 10.5,
-    fontWeight: "500",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    marginTop: 2,
-  },
-  vrule: { width: 1, height: 32, backgroundColor: "rgba(255,255,255,0.18)" },
-  body: {
-    paddingHorizontal: 16,
-    paddingBottom: 28,
-  },
-  dateHeader: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.9,
-    textTransform: "uppercase",
-    color: colors.fg3,
-    marginTop: 18,
-    marginBottom: 10,
-    marginHorizontal: 4,
-  },
-  cardStack: { gap: 10 },
-});
+function createStyles(c: ThemePalette) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.bgApp },
+    state: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 16,
+      gap: 10,
+    },
+    stateText: {
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: c.fg3,
+    },
+    errorText: {
+      fontSize: 12.5,
+      fontWeight: "700",
+      color: c.fg1,
+      textAlign: "center",
+    },
+    hero: {
+      backgroundColor: c.heroBg,
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 22,
+    },
+    heroBar: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    iconBtnLight: {
+      width: 36,
+      height: 36,
+      borderRadius: 999,
+      backgroundColor: c.heroControlBg,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    heroBody: {
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingTop: 6,
+    },
+    logoFrame: {
+      padding: 4,
+      borderRadius: 18,
+      backgroundColor: c.heroControlBg,
+    },
+    name: {
+      color: c.fgOnInverse,
+      fontSize: 28,
+      fontWeight: "800",
+      letterSpacing: -0.6,
+      marginTop: 8,
+    },
+    city: {
+      color: c.fgOnInverseMuted,
+      fontSize: 12,
+      fontWeight: "500",
+      marginTop: 2,
+    },
+    stats: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 16,
+      marginTop: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      backgroundColor: c.heroControlBg,
+      borderRadius: 14,
+    },
+    statCell: { alignItems: "center" },
+    statNum: {
+      color: c.fgOnInverse,
+      fontSize: 22,
+      fontWeight: "700",
+      fontVariant: ["tabular-nums"],
+    },
+    statLbl: {
+      color: c.fgOnInverseMuted,
+      fontSize: 10.5,
+      fontWeight: "500",
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+      marginTop: 2,
+    },
+    vrule: { width: 1, height: 32, backgroundColor: c.heroHairline },
+    body: {
+      paddingHorizontal: 16,
+      paddingBottom: 28,
+    },
+    dateHeader: {
+      fontSize: 11,
+      fontWeight: "700",
+      letterSpacing: 0.9,
+      textTransform: "uppercase",
+      color: c.fg3,
+      marginTop: 18,
+      marginBottom: 10,
+      marginHorizontal: 4,
+    },
+    cardStack: { gap: 10 },
+  });
+}

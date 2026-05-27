@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors } from "../theme";
+import { useTheme } from "../context/ThemeContext";
+import type { ThemePalette } from "../theme";
 
 type Props = {
   title: string;
@@ -9,6 +10,9 @@ type Props = {
 };
 
 export default function TopNav({ title, action }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.bar}>
       <Text style={styles.title}>{title}</Text>
@@ -17,22 +21,24 @@ export default function TopNav({ title, action }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border1,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.fg1,
-    letterSpacing: -0.6,
-  },
-});
+function createStyles(c: ThemePalette) {
+  return StyleSheet.create({
+    bar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 8,
+      backgroundColor: c.bgSurface,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border1,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: c.fg1,
+      letterSpacing: -0.6,
+    },
+  });
+}

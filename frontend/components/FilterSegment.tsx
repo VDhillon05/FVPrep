@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors, shadow } from "../theme";
+import { useTheme } from "../context/ThemeContext";
+import type { ThemePalette } from "../theme";
 
 type Props<T extends string> = {
   value: T;
@@ -9,6 +11,9 @@ type Props<T extends string> = {
 };
 
 export default function FilterSegment<T extends string>({ value, options, onChange }: Props<T>) {
+  const { colors, shadow } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.seg}>
       {options.map((o) => {
@@ -27,31 +32,33 @@ export default function FilterSegment<T extends string>({ value, options, onChan
   );
 }
 
-const styles = StyleSheet.create({
-  seg: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    backgroundColor: colors.navy100,
-    borderRadius: 999,
-    padding: 4,
-  },
-  button: {
-    height: 30,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 1,
-  },
-  activeButton: {
-    backgroundColor: "#ffffff",
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.fg2,
-  },
-  activeLabel: {
-    color: colors.fg1,
-  },
-});
+function createStyles(c: ThemePalette) {
+  return StyleSheet.create({
+    seg: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      backgroundColor: c.bgMuted,
+      borderRadius: 999,
+      padding: 4,
+    },
+    button: {
+      height: 30,
+      paddingHorizontal: 14,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+      marginHorizontal: 1,
+    },
+    activeButton: {
+      backgroundColor: c.bgSurface,
+    },
+    label: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: c.fg2,
+    },
+    activeLabel: {
+      color: c.fg1,
+    },
+  });
+}

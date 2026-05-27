@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 
-import { colors, shadow } from "../theme";
+import { useTheme } from "../context/ThemeContext";
+import type { ThemePalette } from "../theme";
 
 type Props = {
   on: boolean;
@@ -9,6 +10,8 @@ type Props = {
 };
 
 export default function Toggle({ on, onChange }: Props) {
+  const { colors, shadow } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const anim = useRef(new Animated.Value(on ? 1 : 0)).current;
 
   useEffect(() => {
@@ -21,7 +24,7 @@ export default function Toggle({ on, onChange }: Props) {
 
   const trackColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.navy200, colors.orange500],
+    outputRange: [colors.toggleTrackOff, colors.toggleTrackOn],
   });
   const knobLeft = anim.interpolate({
     inputRange: [0, 1],
@@ -31,27 +34,28 @@ export default function Toggle({ on, onChange }: Props) {
   return (
     <Pressable onPress={() => onChange(!on)} hitSlop={8}>
       <Animated.View style={[styles.track, { backgroundColor: trackColor }]}>
-        <Animated.View style={[styles.knob, shadow.s1, { left: knobLeft }]} />
+        <Animated.View style={[styles.knob, shadow.s1, { left: knobLeft, backgroundColor: colors.toggleKnob }]} />
         <View style={styles.spacer} />
       </Animated.View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  track: {
-    width: 44,
-    height: 26,
-    borderRadius: 999,
-    justifyContent: "center",
-  },
-  knob: {
-    position: "absolute",
-    top: 3,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#ffffff",
-  },
-  spacer: { width: 44, height: 26 },
-});
+function createStyles(_c: ThemePalette) {
+  return StyleSheet.create({
+    track: {
+      width: 44,
+      height: 26,
+      borderRadius: 999,
+      justifyContent: "center",
+    },
+    knob: {
+      position: "absolute",
+      top: 3,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+    },
+    spacer: { width: 44, height: 26 },
+  });
+}
