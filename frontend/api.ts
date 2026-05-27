@@ -42,6 +42,15 @@ export type CreateGameInput = {
   round: string;
 };
 
+export type CreateTeamInput = {
+  abbr: string;
+  name: string;
+  city: string;
+  seed?: number;
+  color?: string;
+  textColor?: string;
+};
+
 async function fetchJson<T>(path: string): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   try {
@@ -162,5 +171,51 @@ export async function createGame(gameData: CreateGameInput, pin: string): Promis
     throw new Error(text || `Failed to create game (${res.status})`);
   }
   return normalizeGame((await res.json()) as ApiGame);
+}
+
+export async function createTeam(input: CreateTeamInput, pin: string): Promise<Team> {
+  const url = `${API_BASE_URL}/teams`;
+  const body = {
+    ...input,
+    abbr: input.abbr.toUpperCase(),
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-PIN": pin,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Invalid admin PIN");
+    const text = await res.text();
+    throw new Error(text || `Failed to create team (${res.status})`);
+  }
+  const apiTeam = (await res.json()) as ApiTeam;
+  return {
+    abbr: apiTeam.abbr,
+    name: apiTeam.name,
+    city: apiTeam.city,
+    seed: apiTeam.seed,
+    color: apiTeam.color,
+    textColor: apiTeam.textColor,
+    record: "–",
+  };
+}
+
+export async function deleteTeam(abbr: string, pin: string): Promise<void> {
+  const url = `${API_BASE_URL}/teams/${encodeURIComponent(abbr)}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "X-Admin-PIN": pin,
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Invalid admin PIN");
+    const text = await res.text();
+    throw new Error(text || `Failed to delete team (${res.status})`);
+  }
 }
 

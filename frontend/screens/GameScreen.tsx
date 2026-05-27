@@ -7,14 +7,16 @@ import TeamLogo from "../components/TeamLogo";
 import { useTheme } from "../context/ThemeContext";
 import { fetchGames, fetchTeams } from "../api";
 import { Game, Team } from "../data";
+import { scheduleGameReminder } from "../notifications";
 import { radius, type ThemePalette } from "../theme";
 
 type Props = {
   gameId: number;
   onBack: () => void;
+  notificationsEnabled: boolean;
 };
 
-export default function GameScreen({ gameId, onBack }: Props) {
+export default function GameScreen({ gameId, onBack, notificationsEnabled }: Props) {
   const { colors, shadow } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -22,6 +24,7 @@ export default function GameScreen({ gameId, onBack }: Props) {
   const [teamsByAbbr, setTeamsByAbbr] = useState<Record<string, Team>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reminderStatus, setReminderStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -57,6 +60,54 @@ export default function GameScreen({ gameId, onBack }: Props) {
           { q: "Q3", h: "12", a: "14" },
           { q: "Q4", h: "–", a: "–" },
         ];
+
+  const scheduleReminder = async () => {
+    if (!game || !home || !away) return;
+    if (!notificationsEnabled) {
+      setReminderStatus("Turn on notifications in Settings to schedule reminders.");
+      return;
+    }
+
+    const now = new Date();
+    let start = new Date(now);
+
+    const m = game.when.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+    if (m) {
+      const hoursRaw = parseInt(m[1], 10);
+      const minutes = parseInt(m[2], 10);
+      const suffix = m[3]?.toLowerCase();
+      let hours = hoursRaw;
+      if (suffix === "pm" && hours < 12) hours += 12;
+      if (suffix === "am" && hours === 12) hours = 0;
+
+      start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        hours,
+        minutes,
+        0,
+        0,
+      );
+    } else {
+      // Fallback: assume game starts 30 minutes from now.
+      start = new Date(now.getTime() + 30 * 60 * 1000);
+    }
+
+    let trigger = new Date(start.getTime() - 15 * 60 * 1000);
+    if (trigger <= now) {
+      trigger = new Date(now.getTime() + 2 * 60 * 1000);
+    }
+
+    try {
+      const title = "Game reminder";
+      const body = `${away.name} vs ${home.name} at ${game.court} starts in 15 minutes!`;
+      await scheduleGameReminder(trigger, title, body);
+      setReminderStatus("Reminder set 15 minutes before tipoff.");
+    } catch (e) {
+      setReminderStatus("Unable to schedule reminder on this device.");
+    }
+  };
 
   if (loading) {
     return (
@@ -132,6 +183,7 @@ export default function GameScreen({ gameId, onBack }: Props) {
         <View style={styles.actionRow}>
           <Pressable
             style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && styles.pressed]}
+            onPress={scheduleReminder}
           >
             <Feather name="bell" size={16} color={colors.primaryButtonFg} />
             <Text style={styles.btnPrimaryText}>Notify me</Text>
@@ -143,6 +195,11 @@ export default function GameScreen({ gameId, onBack }: Props) {
             <Text style={styles.btnTertiaryText}>Add to calendar</Text>
           </Pressable>
         </View>
+        {reminderStatus ? (
+          <View style={styles.reminderRow}>
+            <Text style={styles.reminderText}>{reminderStatus}</Text>
+          </View>
+        ) : null}
 
         <View style={[styles.boxscore, shadow.s1]}>
           <View style={[styles.boxRow, styles.boxHead]}>
@@ -369,5 +426,14 @@ function createStyles(c: ThemePalette) {
     },
     metaRowBordered: { borderTopWidth: 1, borderTopColor: c.border1 },
     metaText: { fontSize: 14, fontWeight: "500", color: c.fg1 },
+    reminderRow: {
+      marginBottom: 10,
+      paddingHorizontal: 4,
+    },
+    reminderText: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.fg2,
+    },
   });
 }

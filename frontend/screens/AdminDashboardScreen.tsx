@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { createGame, fetchTeams } from "../api";
+import { createGame, createTeam, deleteTeam, fetchTeams } from "../api";
 import type { Team } from "../data";
 import { useTheme } from "../context/ThemeContext";
 import { radius, type ThemePalette } from "../theme";
@@ -25,6 +25,13 @@ export default function AdminDashboardScreen({ pin, onBack }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [newAbbr, setNewAbbr] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newCity, setNewCity] = useState("");
+  const [teamMessage, setTeamMessage] = useState<string | null>(null);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [savingTeam, setSavingTeam] = useState(false);
+  const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTeams()
@@ -39,6 +46,12 @@ export default function AdminDashboardScreen({ pin, onBack }: Props) {
     setTime("");
     setCourt("");
     setRound("");
+  };
+
+  const resetTeamForm = () => {
+    setNewAbbr("");
+    setNewName("");
+    setNewCity("");
   };
 
   const submit = async () => {
@@ -73,6 +86,46 @@ export default function AdminDashboardScreen({ pin, onBack }: Props) {
     }
   };
 
+  const submitTeam = async () => {
+    setTeamError(null);
+    setTeamMessage(null);
+    const abbr = newAbbr.trim().toUpperCase();
+    const name = newName.trim();
+    const city = newCity.trim();
+    if (!abbr || !name || !city) {
+      setTeamError("Enter abbreviation, name, and city.");
+      return;
+    }
+    try {
+      setSavingTeam(true);
+      const team = await createTeam({ abbr, name, city }, pin);
+      setTeams((prev) => [...prev, team]);
+      setTeamMessage(`Team ${team.abbr} added.`);
+      resetTeamForm();
+    } catch (err) {
+      setTeamError(err instanceof Error ? err.message : "Failed to add team.");
+    } finally {
+      setSavingTeam(false);
+    }
+  };
+
+  const handleDeleteTeam = async (abbr: string) => {
+    setTeamError(null);
+    setTeamMessage(null);
+    try {
+      setDeletingCode(abbr);
+      await deleteTeam(abbr, pin);
+      setTeams((prev) => prev.filter((t) => t.abbr !== abbr));
+      setTeamMessage(`Team ${abbr} deleted.`);
+      if (home === abbr) setHome("");
+      if (away === abbr) setAway("");
+    } catch (err) {
+      setTeamError(err instanceof Error ? err.message : "Failed to delete team.");
+    } finally {
+      setDeletingCode(null);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -83,6 +136,62 @@ export default function AdminDashboardScreen({ pin, onBack }: Props) {
       </View>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={[styles.card, shadow.s1]}>
+          <Text style={styles.sectionTitle}>Manage teams</Text>
+          <Text style={styles.label}>Abbreviation</Text>
+          <TextInput
+            value={newAbbr}
+            onChangeText={(text) => setNewAbbr(text.toUpperCase())}
+            placeholder="e.g. FAL"
+            placeholderTextColor={colors.fg3}
+            style={styles.input}
+            autoCapitalize="characters"
+          />
+          <Text style={styles.label}>Name</Text>
+          <TextInput
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="e.g. Falcons"
+            placeholderTextColor={colors.fg3}
+            style={styles.input}
+          />
+          <Text style={styles.label}>City</Text>
+          <TextInput
+            value={newCity}
+            onChangeText={setNewCity}
+            placeholder="e.g. Riverside"
+            placeholderTextColor={colors.fg3}
+            style={styles.input}
+          />
+          {teamError ? <Text style={styles.errorText}>{teamError}</Text> : null}
+          {teamMessage ? <Text style={styles.successText}>{teamMessage}</Text> : null}
+          <Pressable
+            onPress={submitTeam}
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.primaryBtnText}>{savingTeam ? "Saving..." : "Add Team"}</Text>
+          </Pressable>
+          <View style={styles.teamList}>
+            {teams.map((t) => (
+              <View key={t.abbr} style={styles.teamRow}>
+                <View style={styles.teamRowText}>
+                  <Text style={styles.teamRowPrimary}>{t.abbr} · {t.name}</Text>
+                  <Text style={styles.teamRowSecondary}>{t.city}</Text>
+                </View>
+                <Pressable
+                  onPress={() => handleDeleteTeam(t.abbr)}
+                  style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+                >
+                  <Text style={styles.deleteBtnText}>
+                    {deletingCode === t.abbr ? "Deleting..." : "Delete"}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={[styles.card, shadow.s1]}>
+          <Text style={styles.sectionTitle}>Create game</Text>
           <Text style={styles.label}>Home Team</Text>
           <TeamPicker teams={teams} value={home} onChange={setHome} loading={loadingTeams} styles={styles} />
 
@@ -220,6 +329,12 @@ function createStyles(c: ThemePalette) {
       padding: 14,
       gap: 10,
     },
+    sectionTitle: {
+      color: c.fg1,
+      fontSize: 16,
+      fontWeight: "800",
+      marginBottom: 4,
+    },
     label: {
       color: c.fg1,
       fontSize: 13,
@@ -294,6 +409,46 @@ function createStyles(c: ThemePalette) {
       color: c.primaryButtonFg,
       fontSize: 14,
       fontWeight: "700",
+    },
+    teamList: {
+      marginTop: 10,
+      gap: 8,
+    },
+    teamRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 4,
+    },
+    teamRowText: {
+      flexShrink: 1,
+      marginRight: 8,
+    },
+    teamRowPrimary: {
+      color: c.fg1,
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    teamRowSecondary: {
+      color: c.fg3,
+      fontSize: 11.5,
+      fontWeight: "500",
+      marginTop: 1,
+    },
+    deleteBtn: {
+      height: 30,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: c.border2,
+      paddingHorizontal: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.bgSurface,
+    },
+    deleteBtnText: {
+      color: c.fg1,
+      fontSize: 11.5,
+      fontWeight: "600",
     },
     pressed: { opacity: 0.92, transform: [{ scale: 0.985 }] },
   });

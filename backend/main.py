@@ -45,6 +45,15 @@ class GameCreate(SQLModel):
     period: str | None = None
 
 
+class TeamCreate(SQLModel):
+    abbr: str
+    name: str
+    city: str
+    seed: int | None = None
+    color: str | None = None
+    textColor: str | None = None
+
+
 engine = create_engine(
     "sqlite:///fvprep.db",
     connect_args={"check_same_thread": False},
@@ -301,6 +310,53 @@ def create_game(payload: GameCreate, x_admin_pin: str | None = Header(default=No
         session.commit()
         session.refresh(game)
         return game
+
+
+@app.post("/teams", response_model=Team, status_code=201)
+def create_team(payload: TeamCreate, x_admin_pin: str | None = Header(default=None)) -> Team:
+    _require_admin_pin(x_admin_pin)
+
+    abbr = payload.abbr.upper()
+    with Session(engine) as session:
+        existing = session.get(Team, abbr)
+        if existing is not None:
+            raise HTTPException(status_code=400, detail="Team abbreviation already exists")
+
+        team = Team(
+            abbr=abbr,
+            name=payload.name,
+            city=payload.city,
+            seed=payload.seed or 0,
+            color=payload.color or "#000000",
+            textColor=payload.textColor or "#ffffff",
+        )
+        session.add(team)
+        session.commit()
+        session.refresh(team)
+        return team
+
+
+@app.delete("/teams/{abbr}")
+def delete_team(abbr: str, x_admin_pin: str | None = Header(default=None)) -> dict[str, bool]:
+    _require_admin_pin(x_admin_pin)
+
+    with Session(engine) as session:
+        team = session.get(Team, abbr)
+        if team is None:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        in_games = session.exec(
+            select(Game).where((Game.home == abbr) | (Game.away == abbr)).limit(1)
+        ).first()
+        if in_games is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete team that is referenced by existing games",
+            )
+
+        session.delete(team)
+        session.commit()
+        return {"ok": True}
 
 
 @app.get("/standings")
