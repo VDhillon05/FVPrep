@@ -1,19 +1,30 @@
 import { Feather } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { FV_TEAMS, Game } from "../data";
+import { Game, Team } from "../data";
 import { colors, radius, shadow } from "../theme";
 import StatusChip from "./StatusChip";
 import TeamRow from "./TeamRow";
 
 type Props = {
   game: Game;
+  teamsByAbbr: Record<string, Team | undefined>;
   onPress?: () => void;
 };
 
-export default function GameCard({ game, onPress }: Props) {
-  const home = FV_TEAMS[game.home];
-  const away = FV_TEAMS[game.away];
+const fallbackTeam = (abbr: string): Team => ({
+  abbr,
+  name: abbr,
+  city: "",
+  record: "\u2013",
+  seed: 0,
+  color: "#111827",
+  textColor: "#ffffff",
+});
+
+export default function GameCard({ game, teamsByAbbr, onPress }: Props) {
+  const home = teamsByAbbr[game.home] ?? fallbackTeam(game.home);
+  const away = teamsByAbbr[game.away] ?? fallbackTeam(game.away);
   const winner =
     game.status === "final"
       ? (game.hScore ?? 0) > (game.aScore ?? 0)

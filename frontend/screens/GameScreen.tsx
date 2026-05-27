@@ -1,9 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import StatusChip from "../components/StatusChip";
 import TeamLogo from "../components/TeamLogo";
-import { FV_GAMES, FV_TEAMS } from "../data";
+import { fetchGames, fetchTeams } from "../api";
+import { Game, Team } from "../data";
 import { colors, radius, shadow } from "../theme";
 
 type Props = {
@@ -12,13 +14,33 @@ type Props = {
 };
 
 export default function GameScreen({ gameId, onBack }: Props) {
-  const game = FV_GAMES.find((g) => g.id === gameId);
-  if (!game) return null;
-  const home = FV_TEAMS[game.home];
-  const away = FV_TEAMS[game.away];
+  const [games, setGames] = useState<Game[]>([]);
+  const [teamsByAbbr, setTeamsByAbbr] = useState<Record<string, Team>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      setError(null);
+      try {
+        const [nextTeams, nextGames] = await Promise.all([fetchTeams(), fetchGames()]);
+        setTeamsByAbbr(Object.fromEntries(nextTeams.map((t) => [t.abbr, t])));
+        setGames(nextGames);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load game");
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [gameId]);
+
+  const game = useMemo(() => games.find((g) => g.id === gameId), [games, gameId]);
+  const home = game ? teamsByAbbr[game.home] : undefined;
+  const away = game ? teamsByAbbr[game.away] : undefined;
 
   const periods =
-    game.status === "final"
+    game?.status === "final"
       ? [
           { q: "Q1", h: "18", a: "14" },
           { q: "Q2", h: "22", a: "20" },
@@ -31,6 +53,37 @@ export default function GameScreen({ gameId, onBack }: Props) {
           { q: "Q3", h: "12", a: "14" },
           { q: "Q4", h: "–",  a: "–" },
         ];
+
+  if (loading) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.state}>
+          <ActivityIndicator />
+          <Text style={styles.stateText}>Loading game…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.state}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!game || !home || !away) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.state}>
+          <Text style={styles.errorText}>Game not found.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -140,6 +193,24 @@ export default function GameScreen({ gameId, onBack }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bgApp },
+  state: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  stateText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.fg3,
+  },
+  errorText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.red500,
+    textAlign: "center",
+  },
   hero: {
     backgroundColor: colors.navy900,
     paddingHorizontal: 16,
